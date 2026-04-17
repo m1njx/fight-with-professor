@@ -79,14 +79,9 @@ project/
 ## 🚀 실행 방법
 
 ```bash
-# 1. 저장소 클론
-git clone https://github.com/your-username/student-vs-professor.git
+# 웹 사이트 접속
+git clone fly-cannaby.onrender.com
 
-# 2. 폴더 이동
-cd student-vs-professor
-
-# 3. index.html 브라우저로 열기
-# VSCode Live Server 사용 추천
 ```
 
 > ⚠️ 로컬 파일로 직접 열면 이미지가 안 나올 수 있어요.
