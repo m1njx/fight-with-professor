@@ -1,0 +1,237 @@
+// ================================================
+//  ranking.js  ·  학교별 랭킹 시스템
+// ================================================
+
+import {
+    getFirestore,
+    collection,
+    addDoc,
+    getDocs,
+    query,
+    orderBy,
+    limit,
+    where
+} from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+
+const db = window.db;
+
+// ================================================
+//  기록 저장
+// ================================================
+async function saveRecord(data) {
+    try {
+        await addDoc(collection(db, 'records'), {
+            playerName : data.playerName,
+            school     : data.school,
+            totalDmg   : data.totalDmg,
+            clearRound : data.clearRound,
+            results    : data.results,
+            clearedAt  : new Date()
+        });
+        console.log('✅ 기록 저장 완료');
+    } catch (e) {
+        console.error('❌ 기록 저장 실패:', e);
+    }
+}
+
+// ================================================
+//  전체 랭킹 불러오기 (데미지 기준 TOP 20)
+// ================================================
+async function getGlobalRanking() {
+    const q = query(
+        collection(db, 'records'),
+        orderBy('totalDmg', 'desc'),
+        limit(20)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc, idx) => ({
+        rank  : idx + 1,
+        id    : doc.id,
+        ...doc.data()
+    }));
+}
+
+// ================================================
+//  학교별 랭킹 불러오기
+// ================================================
+async function getSchoolRanking(schoolName) {
+    const q = query(
+        collection(db, 'records'),
+        where('school', '==', schoolName),
+        orderBy('totalDmg', 'desc'),
+        limit(10)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc, idx) => ({
+        rank  : idx + 1,
+        id    : doc.id,
+        ...doc.data()
+    }));
+}
+
+// ================================================
+//  학교 목록 불러오기
+// ================================================
+async function getSchoolList() {
+    const snapshot = await getDocs(collection(db, 'records'));
+    const schools  = new Set();
+    snapshot.docs.forEach(doc => {
+        if (doc.data().school) schools.add(doc.data().school);
+    });
+    return [...schools].sort();
+}
+
+// ================================================
+//  랭킹 UI 렌더링
+// ================================================
+function renderRankingTable(records, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (records.length === 0) {
+        container.innerHTML = `
+            <div class="rank-empty">
+                아직 기록이 없습니다 👾
+            </div>
+        `;
+        return;
+    }
+
+    const rows = records.map(r => {
+        const medal =
+            r.rank === 1 ? '🥇' :
+            r.rank === 2 ? '🥈' :
+            r.rank === 3 ? '🥉' : `#${r.rank}`;
+
+        const date = r.clearedAt?.toDate
+            ? r.clearedAt.toDate().toLocaleDateString('ko-KR')
+            : '-';
+
+        return `
+            <tr class="rank-row ${r.rank <= 3 ? 'top-rank' : ''}">
+                <td class="rank-medal">${medal}</td>
+                <td class="rank-name">${r.playerName}</td>
+                <td class="rank-school">${r.school}</td>
+                <td class="rank-dmg">${r.totalDmg.toLocaleString()}</td>
+                <td class="rank-round">${r.clearRound}R</td>
+                <td class="rank-date">${date}</td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <table class="rank-table">
+            <thead>
+                <tr>
+                    <th>순위</th>
+                    <th>이름</th>
+                    <th>학교</th>
+                    <th>총 데미지</th>
+                    <th>클리어</th>
+                    <th>날짜</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+// ================================================
+//  랭킹 화면 열기 / 닫기
+// ================================================
+async function openRankingScreen(defaultSchool = '') {
+    const screen = document.getElementById('rankingScreen');
+    if (screen) {
+        screen.classList.remove('hidden');
+    } else {
+        const inputScreen   = document.getElementById('inputScreen');
+        const gameScreen    = document.getElementById('gameScreen');
+        const clearScreen   = document.getElementById('clearScreen');
+        const gameOverScreen= document.getElementById('gameOverScreen');
+        if (inputScreen) inputScreen.classList.remove('hidden');
+        if (gameScreen)  gameScreen.classList.add('hidden');
+        if (clearScreen) clearScreen.classList.add('hidden');
+        if (gameOverScreen) gameOverScreen.classList.add('hidden');
+    }
+
+    // 학교 목록 로드
+    const schools = await getSchoolList();
+    const select  = document.getElementById('schoolFilter');
+    if (!select) return;
+
+    select.innerHTML = `<option value="">🌍 전체 랭킹</option>`;
+    schools.forEach(s => {
+        const opt       = document.createElement('option');
+        opt.value       = s;
+        opt.textContent = s;
+        if (s === defaultSchool) opt.selected = true;
+        select.appendChild(opt);
+    });
+
+    await loadRanking(defaultSchool);
+}
+
+async function loadRanking(schoolName = '') {
+    const container = document.getElementById('rankingTableWrap');
+    container.innerHTML = '<div class="rank-loading">불러오는 중... ⏳</div>';
+
+    const records = schoolName
+        ? await getSchoolRanking(schoolName)
+        : await getGlobalRanking();
+
+    renderRankingTable(records, 'rankingTableWrap');
+}
+
+function closeRankingScreen() {
+    document.getElementById('rankingScreen').classList.add('hidden');
+}
+
+// ================================================
+//  페이지 로드시 자동 랭킹 표시 (TOP 10)
+// ================================================
+async function initRankingPreview() {
+    const container = document.getElementById('rankingTableWrap');
+    if (!container) return;
+
+    // 랭킹 화면 바로 표시 (overlay가 없는 경우에도 inline preview는 유지)
+    const screen = document.getElementById('rankingScreen');
+    if (screen) {
+        screen.classList.remove('hidden');
+    }
+
+    // 학교 목록 로드
+    const schools = await getSchoolList();
+    const select  = document.getElementById('schoolFilter');
+    if (select) {
+        select.innerHTML = `<option value="">🌍 전체 랭킹</option>`;
+        schools.forEach(s => {
+            const opt       = document.createElement('option');
+            opt.value       = s;
+            opt.textContent = s;
+            select.appendChild(opt);
+        });
+    }
+
+    // 전체 랭킹 TOP 10 자동 로드
+    container.innerHTML = '<div class="rank-loading">불러오는 중... ⏳</div>';
+    const records = await getGlobalRanking();
+    renderRankingTable(records, 'rankingTableWrap');
+}
+
+// ================================================
+//  페이지 로드시 자동 실행
+// ================================================
+document.addEventListener('DOMContentLoaded', () => {
+    // Firebase db가 준비될 때까지 잠깐 대기
+    setTimeout(() => {
+        initRankingPreview();
+    }, 500);
+});
+
+// ================================================
+//  외부 노출
+// ================================================
+window.saveRecord         = saveRecord;
+window.openRankingScreen  = openRankingScreen;
+window.loadRanking        = loadRanking;
+window.closeRankingScreen = closeRankingScreen;
