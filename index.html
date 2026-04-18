@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>교수님 도장깨기</title>
+    <link rel="stylesheet" href="./game.css">
+</head>
+<body>
+    <div id="gameWrapper">
+
+        <!-- 입력 화면 -->
+        <div id="inputScreen">
+            <!-- <div class="input-title">
+                <h1>⚔️ 우당탕탕 교수님 도장깨기</h1>
+                <p>격투의 시작</p>
+            </div> -->
+
+            <div class="input-main">
+
+                <!-- 왼쪽: 입력 폼 -->
+                <div class="input-left">
+                    <div class="input-box">
+                        <div class="input-group">
+                            <label>🎓 플레이어 이름</label>
+                            <input type="text" id="playerName" placeholder="학생 이름 입력" maxlength="10">
+                        </div>
+                        <div class="input-group">
+                            <label>👨‍🏫 교수님 성함</label>
+                            <input type="text" id="bossName" placeholder="교수님 성함 입력" maxlength="10">
+                        </div>
+                        <div class="input-group">
+                            <label>🏫 학교 이름</label>
+                            <input type="text" id="schoolName" placeholder="예) 한국대학교" maxlength="20">
+                        </div>
+                        <button id="gameStartBtn">⚔️ 게임 시작</button>
+                    </div>
+
+                    <div class="input-controls">
+                        <h3>🎮 조작법</h3>
+                        <div class="controls-grid">
+                            <div class="ctrl-item"><kbd>←</kbd><kbd>→</kbd> 이동</div>
+                            <div class="ctrl-item"><kbd>↑</kbd> 점프</div>
+                            <div class="ctrl-item"><kbd>↓</kbd> 방어/회피</div>
+                            <div class="ctrl-item"><kbd>Space</kbd> 기본 공격</div>
+                            <div class="ctrl-item"><kbd>Z</kbd> 강공격</div>
+                            <div class="ctrl-item"><kbd>X</kbd> 킥</div>
+                            <div class="ctrl-item"><kbd>C</kbd> 필살기</div>
+                            <div class="ctrl-item"><kbd>↑+Space</kbd> 점프 공격</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 오른쪽: 랭킹 -->
+                <div class="input-right">
+                    <div class="ranking-inline">
+                        <div class="ranking-header">
+                            <h2>🏆 명예의 전당</h2>
+                            <div class="ranking-filter">
+                                <select id="schoolFilter" onchange="loadRanking(this.value)">
+                                </select>
+                            </div>
+                        </div>
+                        <div id="rankingTableWrap"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 게임 화면 -->
+        <div id="gameScreen" class="hidden">
+            <!-- HUD -->
+            <div id="hud">
+                <div class="hud-player">
+                    <span id="p1Name" class="fighter-name">학생</span>
+                    <div class="hp-wrap">
+                        <div id="p1HpBar" class="hp-bar p1-bar"></div>
+                        <div id="p1HpDamage" class="hp-damage"></div>
+                    </div>
+                    <span id="p1HpText" class="hp-text">200</span>
+                </div>
+                <div class="hud-center">
+                    <div id="roundDisplay">ROUND 1</div>
+                    <div id="timerDisplay">99</div>
+                    <div id="roundIcons">
+                        <div class="round-dots" id="p1Dots"></div>
+                        <div class="round-dots" id="p2Dots"></div>
+                    </div>
+                </div>
+                <div class="hud-boss">
+                    <span id="p2HpText" class="hp-text">500</span>
+                    <div class="hp-wrap">
+                        <div id="p2HpBar" class="hp-bar p2-bar"></div>
+                        <div id="p2HpDamage" class="hp-damage p2-damage"></div>
+                    </div>
+                    <span id="p2Name" class="fighter-name">교수</span>
+                </div>
+            </div>
+
+            <!-- 필살기 게이지 -->
+            <div id="specialGauge">
+                <span class="gauge-label">⚡ 필살기</span>
+                <div class="gauge-wrap">
+                    <div id="specialBar" class="special-bar"></div>
+                </div>
+                <span id="specialText">0%</span>
+            </div>
+
+            <!-- 캔버스 -->
+            <canvas id="gameCanvas"></canvas>
+
+            <!-- 라운드 배너 -->
+            <div id="roundBanner" class="hidden">
+                <div id="roundBannerText"></div>
+            </div>
+
+            <!-- KO 배너 -->
+            <div id="koBanner" class="hidden">
+                <div id="koBannerText"></div>
+            </div>
+        </div>
+
+        <!-- 클리어 화면 -->
+        <div id="clearScreen" class="hidden">
+            <div class="clear-content">
+                <div class="clear-emoji">📝</div>
+                <h1 class="clear-title">시험지를 획득하였습니다!</h1>
+                <p id="clearPlayerName" class="clear-sub"></p>
+                <p class="clear-sub">모든 라운드를 클리어했습니다!</p>
+                <div class="clear-stats" id="clearStats"></div>
+                <button id="clearRestartBtn">↺ 처음으로</button>
+            </div>
+        </div>
+
+        <!-- 게임오버 화면 -->
+        <div id="gameOverScreen" class="hidden">
+            <div class="gameover-content">
+                <h1 class="gameover-title">💀 GAME OVER</h1>
+                <p id="gameOverMsg"></p>
+                <button id="gameOverRestartBtn">↺ 다시 시작</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
+        import { getFirestore }  from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey           : "AIzaSyCHEvyUmzK7A0B7qbjil547ukGnE8-iwTg",
+            authDomain       : "fight-with-professor.firebaseapp.com",
+            projectId        : "fight-with-professor",
+            storageBucket    : "fight-with-professor.firebasestorage.app",
+            messagingSenderId: "341966431113",
+            appId            : "1:341966431113:web:a7cd10a5f9c5366c51f758",
+            measurementId    : "G-M2RE1GJF5V"
+        };
+
+        window.firebaseApp = initializeApp(firebaseConfig);
+        window.db          = getFirestore(window.firebaseApp);
+    </script>
+    <script src="./game.js"></script>
+    <script type="module" src="./ranking.js"></script>
+</body>
+</html>
