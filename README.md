@@ -126,7 +126,7 @@ FireBase DataBase
 > 이 게임은 학생과 교수의 격투를 유머러스하게 표현한 프로젝트입니다. 😄
 - 강민제 : JavaScript, firebase database
 - 고민성 : HTML/CSS
-- 강초원 : 디자인
+- 강초원 : 디자인 HTML/CSS
 ---
 
 ## 📜 라이선스
